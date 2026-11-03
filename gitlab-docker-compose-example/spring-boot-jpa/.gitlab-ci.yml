@@ -1,0 +1,81 @@
+stages:
+  - build
+  - package
+  - security
+  - deploy
+
+
+build_project:
+  stage: build
+  image: maven:3-eclipse-temurin-21
+  script:
+    - mvn clean package
+  artifacts:
+    paths:
+      - target/*.jar
+    expire_in: 1 week
+  tags:
+    - demo
+
+secret_scanning:
+  stage: build
+  image:
+    name: ghcr.io/betterleaks/betterleaks:v1.9.0
+    entrypoint: [""]
+  script:
+    - betterleaks dir . --report-format=template --report-template=./gitlab-secret-template.tmpl  --report-path ./gitlab-secret-detection-report.json
+  artifacts:
+    reports:
+      secret_detection: gitlab-secret-detection-report.json
+  allow_failure: false
+  tags:
+    - demo
+  
+build_and_push_image:
+  stage: package
+  image: quay.io/podman/stable:latest
+  script:
+    - podman build -t local-registry:5000/spring-boot-jpa:$CI_COMMIT_SHA .
+    - podman push --tls-verify=false local-registry:5000/spring-boot-jpa:$CI_COMMIT_SHA
+    - podman tag local-registry:5000/spring-boot-jpa:$CI_COMMIT_SHA local-registry:5000/spring-boot-jpa:latest
+    - podman push --tls-verify=false local-registry:5000/spring-boot-jpa:latest
+  dependencies:
+    - build_project
+  tags:
+    - demo
+
+trivy_security_scan:
+  stage: security
+  image:
+    name: aquasec/trivy:0.76.1
+    entrypoint: [""]
+  variables:
+    TRIVY_CACHE_DIR: ".trivycache/"
+  cache:
+    key: trivy-cache
+    paths:
+      - .trivycache/
+  script:
+    - trivy image --download-db-only --cache-dir $TRIVY_CACHE_DIR
+    - trivy image --insecure local-registry:5000/spring-boot-jpa:latest --exit-code 0 --severity HIGH,CRITICAL --scanners vuln --cache-dir $TRIVY_CACHE_DIR --skip-db-update
+  dependencies:
+    - build_and_push_image
+  tags:
+    - demo
+
+dev_deploy:
+  stage: deploy
+  image: quay.io/podman/stable:latest
+  variables:
+    CONTAINER_HOST: "unix:///var/run/docker.sock"
+    IMAGE: "host.containers.internal:5001/spring-boot-jpa:latest"
+    APP_NAME: "spring-boot-jpa"
+    HOST_PORT: "8080"
+    CONTAINER_PORT: "8080"
+  script:
+    - chmod +x ./deploy.sh
+    - ./deploy.sh $IMAGE $APP_NAME $HOST_PORT $CONTAINER_PORT $DB_PASSWORD
+  dependencies:
+    - trivy_security_scan
+  tags:
+    - demo

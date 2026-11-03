@@ -1,0 +1,21 @@
+gitlab-docker-compose-example/registry-data/
+gitlab-docker-compose-example/runner-config/.runner_system_id
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
