@@ -21,9 +21,8 @@ services:
     shm_size: '256m'
 
   gitlab-runner:
-    image: 'gitlab/gitlab-runner:latest'
+    image: 'gitlab/gitlab-runner:v19.5.2'
     container_name: 'gitlab-runner'
-    user: "0:0"
     security_opt:
       - "label=disable"
     restart: always
