@@ -1,0 +1,53 @@
+services:
+  gitlab-server:
+    image: 'gitlab/gitlab-ce:19.5.4-ce.0'
+    container_name: 'gitlab-server'
+    restart: always
+    hostname: 'gitlab.example.com'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:8085'
+        gitlab_rails['initial_root_password'] = 'K9#mP2@vL8!qR4x'
+    ports:
+      - '8085:8085'
+    networks:
+      - gitlab-network
+    volumes:
+      - gitlab-config:/etc/gitlab
+      - gitlab-logs:/var/log/gitlab
+      - gitlab-data:/var/opt/gitlab
+    shm_size: '256m'
+
+  gitlab-runner:
+    image: 'gitlab/gitlab-runner:v19.5.2'
+    container_name: 'gitlab-runner'
+    security_opt:
+      - "label=disable"
+    restart: always
+    networks:
+      - gitlab-network
+    volumes:
+      - '/run/user/501/podman/podman.sock:/var/run/docker.sock'
+      - './runner-config:/etc/gitlab-runner'
+
+  registry:
+    image: 'registry:2'
+    container_name: 'local-registry'
+    restart: always
+    ports:
+      - '5001:5000'
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - ./registry-data:/var/lib/registry:z
+    networks:
+      - gitlab-network
+
+volumes:
+  gitlab-config:
+  gitlab-logs:
+  gitlab-data:
+
+networks:
+  gitlab-network:
+    driver: bridge
